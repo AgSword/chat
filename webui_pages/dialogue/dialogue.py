@@ -143,6 +143,7 @@ def dialogue_page(api: ApiRequest, is_lite: bool = False):
                         "文件对话",
                         "搜索引擎问答",
                         "自定义Agent问答",
+                        "程序员面试问答"
                         ]
         dialogue_mode = st.selectbox("请选择对话模式：",
                                      dialogue_modes,
@@ -207,6 +208,7 @@ def dialogue_page(api: ApiRequest, is_lite: bool = False):
             "搜索引擎问答": "search_engine_chat",
             "知识库问答": "knowledge_base_chat",
             "文件对话": "knowledge_base_chat",
+            "程序员面试问答": "programmer_interview_chat"
         }
         prompt_templates_kb_list = list(PROMPT_TEMPLATES[index_prompt[dialogue_mode]].keys())
         prompt_template_name = prompt_templates_kb_list[0]
@@ -231,7 +233,7 @@ def dialogue_page(api: ApiRequest, is_lite: bool = False):
         def on_kb_change():
             st.toast(f"已加载知识库： {st.session_state.selected_kb}")
 
-        if dialogue_mode == "知识库问答":
+        if dialogue_mode == "知识库问答" or dialogue_mode == "程序员面试问答":
             with st.expander("知识库配置", True):
                 kb_list = api.list_knowledge_bases()
                 index = 0
@@ -388,6 +390,28 @@ def dialogue_page(api: ApiRequest, is_lite: bool = False):
                         chat_box.update_msg(text, element_index=0)
                 chat_box.update_msg(text, element_index=0, streaming=False)
                 chat_box.update_msg("\n\n".join(d.get("docs", [])), element_index=1, streaming=False)
+            elif dialogue_mode == "程序员面试问答":
+                chat_box.ai_say([
+                    f"正在查询知识库 `{selected_kb}` ...",
+                    Markdown("...", in_expander=True, title="知识库匹配结果", state="complete"),
+                ])
+                text = ""
+                for d in api.knowledge_base_chat(prompt,
+                                                knowledge_base_name=selected_kb,
+                                                top_k=kb_top_k,
+                                                score_threshold=score_threshold,
+                                                history=history,
+                                                model=llm_model,
+                                                prompt_name=prompt_template_name,
+                                                temperature=temperature):
+                    if error_msg := check_error_msg(d):  # check whether error occured
+                        st.error(error_msg)
+                    elif chunk := d.get("answer"):
+                        text += chunk
+                        chat_box.update_msg(text, element_index=0)
+                chat_box.update_msg(text, element_index=0, streaming=False)
+                chat_box.update_msg("\n\n".join(d.get("docs", [])), element_index=1, streaming=False)
+
             elif dialogue_mode == "文件对话":
                 if st.session_state["file_chat_id"] is None:
                     st.error("请先上传文件再进行对话")
