@@ -233,7 +233,7 @@ def dialogue_page(api: ApiRequest, is_lite: bool = False):
         def on_kb_change():
             st.toast(f"已加载知识库： {st.session_state.selected_kb}")
 
-        if dialogue_mode == "知识库问答" or dialogue_mode == "程序员面试问答":
+        if dialogue_mode == "知识库问答":
             with st.expander("知识库配置", True):
                 kb_list = api.list_knowledge_bases()
                 index = 0
@@ -250,6 +250,25 @@ def dialogue_page(api: ApiRequest, is_lite: bool = False):
 
                 ## Bge 模型会超过1
                 score_threshold = st.slider("知识匹配分数阈值：", 0.0, 2.0, float(SCORE_THRESHOLD), 0.01)
+        elif dialogue_mode == "程序员面试问答":
+            with st.expander("知识库配置", True):
+                kb_list = api.list_knowledge_bases()
+                index = 0
+                if DEFAULT_KNOWLEDGE_BASE in kb_list:
+                    index = kb_list.index(DEFAULT_KNOWLEDGE_BASE)
+                selected_kb = st.selectbox(
+                    "请选择知识库：",
+                    kb_list,
+                    index=index,
+                    on_change=on_kb_change,
+                    key="selected_kb",
+                )
+                kb_top_k = st.number_input("匹配知识条数：", 1, 20, VECTOR_SEARCH_TOP_K)
+
+                ## Bge 模型会超过1
+                score_threshold = st.slider("知识匹配分数阈值：", 0.0, 2.0, float(SCORE_THRESHOLD), 0.01)
+                language = st.text_input("请输入擅长的编程语言", max_chars = 100, help = "最大长度为100")
+
         elif dialogue_mode == "文件对话":
             with st.expander("文件对话配置", True):
                 files = st.file_uploader("上传知识文件：",
@@ -396,8 +415,9 @@ def dialogue_page(api: ApiRequest, is_lite: bool = False):
                     Markdown("...", in_expander=True, title="知识库匹配结果", state="complete"),
                 ])
                 text = ""
-                for d in api.knowledge_base_chat(prompt,
+                for d in api.knowledge_programmer_interview_chat(prompt,
                                                 knowledge_base_name=selected_kb,
+                                                language = language,
                                                 top_k=kb_top_k,
                                                 score_threshold=score_threshold,
                                                 history=history,
